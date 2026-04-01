@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>旅遊報名系統</title>
+  <style>
+    .status-box { background: #f4f4f4; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+    .full-message { color: red; font-weight: bold; display: none; }
+    #surveyForm { display: none; } /* 初始隱藏，確認沒滿才顯示 */
+  </style>
+</head>
+<body>
+
+  <h2>旅遊報名調查</h2>
+
+  <div class="status-box">
+    <p>目前報名人數：<span id="currentCount">讀取中...</span> / <span id="maxLimit">-</span></p>
+    <p>已報名人員：<span id="participantList">-</span></p>
+  </div>
+
+  <div id="fullMsg" class="full-message">⚠️ 報名人數已達上限，感謝您的關注！</div>
+
+  <form id="surveyForm">
+    <label>您的姓名：<input type="text" name="name" required></label><br><br>
+    <label>參加人數：<input type="number" name="count" min="1" value="1" id="inputCount" required></label><br><br>
+    <button type="submit" id="submitBtn">確認送出</button>
+  </form>
+
+  <script>
+    const scriptURL = 'https://script.google.com/macros/s/AKfycbyIU0aIEodyII27D9i7lHQDnRfHEprTNm_Cv9CQVLUdEOeHa3X3tCl3hitA_ZdYCSQL8A/exec';
+    const form = document.getElementById('surveyForm');
+    const fullMsg = document.getElementById('fullMsg');
+
+    // 1. 頁面載入時先抓取目前狀態
+    window.onload = () => {
+      fetch(scriptURL)
+        .then(res => res.json())
+        .then(data => {
+          document.getElementById('currentCount').innerText = data.currentTotal;
+          document.getElementById('maxLimit').innerText = data.maxLimit;
+          document.getElementById('participantList').innerText = data.names.join(', ') || '尚無人報名';
+          
+          // 2. 判斷是否已滿
+          if (data.isFull) {
+            fullMsg.style.display = 'block';
+          } else {
+            form.style.display = 'block';
+            // 設定人數輸入框的最大值，防止最後一刻超標
+            document.getElementById('inputCount').max = data.maxLimit - data.currentTotal;
+          }
+        });
+    };
+
+    // 3. 處理表單提交 (邏輯同之前，但加入回傳狀態判斷)
+    form.addEventListener('submit', e => {
+      e.preventDefault();
+      const submitBtn = document.getElementById('submitBtn');
+      submitBtn.disabled = true;
+      submitBtn.innerText = '處理中...';
+
+      fetch(scriptURL, { method: 'POST', body: new FormData(form) })
+        .then(res => res.json())
+        .then(result => {
+          if (result.status === 'success') {
+            alert('報名成功！');
+            location.reload(); // 重新整理頁面以更新名單
+          } else {
+            alert(result.message);
+            location.reload();
+          }
+        })
+        .catch(error => alert('連線失敗'));
+    });
+  </script>
+</body>
+</html>
