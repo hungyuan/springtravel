@@ -5,72 +5,204 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>旅遊報名系統</title>
   <style>
-    .status-box { background: #f4f4f4; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
-    .full-message { color: red; font-weight: bold; display: none; }
-    #surveyForm { display: none; } /* 初始隱藏，確認沒滿才顯示 */
+    /* 全局設定與放大字體 */
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f0f4f8; /* 柔和的背景色 */
+      color: #333;
+      font-size: 18px; /* 放大的基礎字型，閱讀更舒適 */
+      line-height: 1.6;
+      display: flex;
+      justify-content: center;
+      padding: 20px;
+      margin: 0;
+    }
+
+    /* 卡片式主容器 */
+    .container {
+      background-color: #ffffff;
+      width: 100%;
+      max-width: 500px;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    }
+
+    h2 {
+      text-align: center;
+      color: #2c3e50;
+      margin-top: 0;
+      font-size: 1.5em; /* 標題進一步放大 */
+    }
+
+    /* 狀態區塊美化 */
+    .status-box {
+      background: #eaf2f8;
+      padding: 15px 20px;
+      border-radius: 8px;
+      margin-bottom: 25px;
+      border-left: 5px solid #3498db;
+    }
+    
+    .status-box p { margin: 8px 0; }
+    .highlight { font-weight: bold; color: #e74c3c; font-size: 1.2em; }
+
+    /* 表單元件美化 */
+    label { display: block; margin-bottom: 8px; font-weight: bold; }
+    input[type="text"], input[type="number"] {
+      width: 100%;
+      padding: 12px;
+      margin-bottom: 20px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      box-sizing: border-box;
+      font-size: 18px; /* 輸入框字體放大 */
+      transition: border-color 0.3s;
+    }
+    input[type="text"]:focus, input[type="number"]:focus {
+      border-color: #3498db;
+      outline: none;
+    }
+
+    /* 按鈕美化 */
+    button {
+      width: 100%;
+      background-color: #3498db;
+      color: white;
+      border: none;
+      padding: 15px;
+      font-size: 18px;
+      font-weight: bold;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+    button:hover { background-color: #2980b9; }
+    button:disabled { background-color: #bdc3c7; cursor: not-allowed; }
+
+    .full-message { color: #e74c3c; font-weight: bold; text-align: center; display: none; font-size: 1.2em; padding: 10px; border: 2px dashed #e74c3c; border-radius: 8px;}
+    
+    /* 需要被 JS 控制顯示/隱藏的區塊 */
+    #mainContent { display: none; } 
+
+    /* --- 讀取動畫 (Spinner) 的 CSS --- */
+    #loader {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 0;
+    }
+    .spinner {
+      border: 5px solid #f3f3f3;
+      border-top: 5px solid #3498db;
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      animation: spin 1s linear infinite;
+      margin-bottom: 15px;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
   </style>
 </head>
 <body>
 
-  <h2>旅遊報名調查</h2>
+  <div class="container">
+    <h2>🏖️ 旅遊報名調查</h2>
 
-  <div class="status-box">
-    <p>目前報名人數：<span id="currentCount">讀取中...</span> / <span id="maxLimit">-</span></p>
-    <p>已報名人員：<span id="participantList">-</span></p>
+    <div id="loader">
+      <div class="spinner"></div>
+      <div id="loaderText">連線至資料庫中...</div>
+    </div>
+
+    <div id="mainContent">
+      <div class="status-box">
+        <p>目前報名人數：<span id="currentCount" class="highlight">0</span> / <span id="maxLimit">0</span> 人</p>
+        <p>已報名人員：<span id="participantList">讀取中...</span></p>
+      </div>
+
+      <div id="fullMsg" class="full-message">⚠️ 報名人數已達上限，感謝您的關注！</div>
+
+      <form id="surveyForm">
+        <label for="name">您的姓名：</label>
+        <input type="text" id="name" name="name" placeholder="請輸入全名" required>
+        
+        <label for="count">參加人數 (含眷屬)：</label>
+        <input type="number" id="count" name="count" min="1" value="1" id="inputCount" required>
+        
+        <button type="submit" id="submitBtn">確認送出報名</button>
+      </form>
+    </div>
   </div>
 
-  <div id="fullMsg" class="full-message">⚠️ 報名人數已達上限，感謝您的關注！</div>
-
-  <form id="surveyForm">
-    <label>您的姓名：<input type="text" name="name" required></label><br><br>
-    <label>參加人數：<input type="number" name="count" min="1" value="1" id="inputCount" required></label><br><br>
-    <button type="submit" id="submitBtn">確認送出</button>
-  </form>
-
   <script>
-    const scriptURL = 'https://script.google.com/macros/s/AKfycbyIU0aIEodyII27D9i7lHQDnRfHEprTNm_Cv9CQVLUdEOeHa3X3tCl3hitA_ZdYCSQL8A/exec';
+    // 記得替換成你自己的 GAS 網址！
+    const scriptURL = '請貼上你的_GAS_網頁應用程式網址'; 
+    
+    // 取得 DOM 元素
     const form = document.getElementById('surveyForm');
     const fullMsg = document.getElementById('fullMsg');
+    const loader = document.getElementById('loader');
+    const loaderText = document.getElementById('loaderText');
+    const mainContent = document.getElementById('mainContent');
+    const submitBtn = document.getElementById('submitBtn');
 
-    // 1. 頁面載入時先抓取目前狀態
+    // 1. 頁面載入時：顯示動畫 -> 抓取資料 -> 隱藏動畫 -> 顯示內容
     window.onload = () => {
       fetch(scriptURL)
         .then(res => res.json())
         .then(data => {
+          // 填入資料
           document.getElementById('currentCount').innerText = data.currentTotal;
           document.getElementById('maxLimit').innerText = data.maxLimit;
           document.getElementById('participantList').innerText = data.names.join(', ') || '尚無人報名';
           
-          // 2. 判斷是否已滿
+          // 判斷是否已滿
           if (data.isFull) {
             fullMsg.style.display = 'block';
+            form.style.display = 'none';
           } else {
             form.style.display = 'block';
-            // 設定人數輸入框的最大值，防止最後一刻超標
-            document.getElementById('inputCount').max = data.maxLimit - data.currentTotal;
+            document.getElementById('count').max = data.maxLimit - data.currentTotal;
           }
+
+          // 資料處理完畢：隱藏 Loader，顯示主內容
+          loader.style.display = 'none';
+          mainContent.style.display = 'block';
+        })
+        .catch(error => {
+          loaderText.innerText = '讀取失敗，請重新整理網頁';
+          loaderText.style.color = 'red';
+          document.querySelector('.spinner').style.display = 'none'; // 隱藏圈圈
         });
     };
 
-    // 3. 處理表單提交 (邏輯同之前，但加入回傳狀態判斷)
+    // 2. 處理表單提交時：隱藏表單 -> 顯示動畫 -> 送出資料
     form.addEventListener('submit', e => {
       e.preventDefault();
-      const submitBtn = document.getElementById('submitBtn');
-      submitBtn.disabled = true;
-      submitBtn.innerText = '處理中...';
+      
+      // 切換回讀取動畫畫面
+      mainContent.style.display = 'none';
+      loader.style.display = 'flex';
+      loaderText.innerText = '資料傳送中，請勿關閉視窗...';
 
       fetch(scriptURL, { method: 'POST', body: new FormData(form) })
         .then(res => res.json())
         .then(result => {
           if (result.status === 'success') {
             alert('報名成功！');
-            location.reload(); // 重新整理頁面以更新名單
           } else {
             alert(result.message);
-            location.reload();
           }
+          location.reload(); // 重新整理頁面以看見最新狀態
         })
-        .catch(error => alert('連線失敗'));
+        .catch(error => {
+          alert('連線失敗，請檢查網路狀態');
+          location.reload();
+        });
     });
   </script>
 </body>
